@@ -4,7 +4,6 @@ import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.awt.*
-import java.awt.font.GlyphVector
 import java.awt.font.TextAttribute
 import java.awt.image.BufferedImage
 import java.io.File
@@ -25,6 +24,7 @@ suspend fun main() = coroutineScope {
 
     println("Cropping to reel size!")
     val imageCropped = image.cropReelSize()
+    println("${imageCropped.width} X ${imageCropped.height} | ${imageCropped.ratio()}")
     imageCropped.write("result1")
 
     println("Appending Quote")
@@ -33,21 +33,17 @@ suspend fun main() = coroutineScope {
     val (imageWidth, imageHeight) = 1080 to 1920
     val imageWithQuote = with(awtImage) {
         val graphics = graphics
-        val baseFont = Font(Font.MONOSPACED, Font.PLAIN, 24)
-
-        // dynamic fontsize
-        val newFontSize = graphics.getAdaptiveFontSizeRecursive(baseFont, quote)
-        val adaptiveFont = baseFont.deriveFont(baseFont.style, newFontSize.toFloat())
-        val adaptiveFontMetrics: FontMetrics = graphics.getFontMetrics(adaptiveFont)
+        val font = Font(Font.MONOSPACED, Font.PLAIN, 46)
+        val fontMetrics: FontMetrics = graphics.getFontMetrics(font)
 
         // text attribute
         val attributedText = AttributedString(quote)
-        attributedText.addAttribute(TextAttribute.FONT, adaptiveFont)
+        attributedText.addAttribute(TextAttribute.FONT, font)
         attributedText.addAttribute(TextAttribute.FOREGROUND, Color.GREEN)
 
         // text position - Centalized
-        val positionX: Int = (imageWidth - adaptiveFontMetrics.stringWidth(quote)) / 2
-        val positionY: Int = (imageHeight - adaptiveFontMetrics.height) / 2 + adaptiveFontMetrics.ascent
+        val positionX: Int = (imageWidth - fontMetrics.stringWidth(quote)) / 2
+        val positionY: Int = ((imageHeight - fontMetrics.height) / 2) + fontMetrics.ascent
 
         // draw text
         graphics.drawString(attributedText.iterator, positionX, positionY)
@@ -55,26 +51,6 @@ suspend fun main() = coroutineScope {
     }
     imageWithQuote.write("result2")
     Unit
-}
-
-fun Graphics.getAdaptiveFontSizeRecursive(baseFont: Font, quote: String): Double {
-    val (imageWidth, imageHeight) = 1080 to 1920
-    val graphics = this
-    val metrics: FontMetrics = graphics.getFontMetrics(baseFont)
-    val vector: GlyphVector = baseFont.createGlyphVector(metrics.fontRenderContext, quote)
-    val outline: Shape = vector.getOutline(0f, 0f)
-    val expectedWidth: Double = outline.bounds.getWidth()
-    val expectedHeight: Double = outline.bounds.getHeight()
-    val widthBasedFontSize: Double = baseFont.size2D * imageWidth / expectedWidth
-    val heightBasedFontSize: Double = baseFont.size2D * imageHeight / expectedHeight
-    val textFits = imageWidth >= expectedWidth && imageHeight >= expectedHeight
-    val newFontSize = if (widthBasedFontSize < heightBasedFontSize) widthBasedFontSize else heightBasedFontSize
-    return if (textFits) {
-        newFontSize
-    } else {
-        val newBaseFont = baseFont.deriveFont(baseFont.style, newFontSize.toFloat())
-        getAdaptiveFontSizeRecursive(newBaseFont, quote)
-    }
 }
 
 fun ImmutableImage.cropReelSize(): ImmutableImage {
