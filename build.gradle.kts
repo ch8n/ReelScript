@@ -17,6 +17,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation("com.sksamuel.scrimage:scrimage-core:4.0.32")
     implementation("com.sksamuel.scrimage:scrimage-filters:4.0.32")
+    implementation("org.jcodec:jcodec:0.2.5")
+    implementation("org.jcodec:jcodec-javase:0.2.5")
 }
 
 tasks.withType<KotlinCompile> {

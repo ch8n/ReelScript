@@ -2,21 +2,24 @@ import com.sksamuel.scrimage.ImmutableImage
 import com.sksamuel.scrimage.nio.JpegWriter
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.awt.*
+import org.jcodec.api.awt.AWTSequenceEncoder
+import org.jcodec.common.io.NIOUtils
+import org.jcodec.common.model.Rational
+import java.awt.Color
+import java.awt.Font
+import java.awt.FontMetrics
 import java.awt.font.TextAttribute
 import java.io.File
 import java.io.InputStream
 import java.text.AttributedString
-import java.util.UUID
+import java.util.*
 import kotlin.math.roundToInt
 
 
 const val DIRECTORY_OUTPUT = "output"
-
 
 suspend fun main() = runBlocking {
     val images = listOf(
@@ -53,17 +56,31 @@ suspend fun main() = runBlocking {
                 "― Ned Vizzini, It's Kind of a Funny Story"
     )
     resetDirectory()
-    (0..100).map {
+    (0..0).map {
         val url = images.shuffled().first()
         val quote = quotes.shuffled().first()
         async {
-            createQuoteImageOrNull(
-                imageUrl = url,
-                quote = quote
-            )?.write(UUID.randomUUID().toString())
+            val image = createQuoteImageOrNull(imageUrl = url, quote = quote)
+            val fileName = UUID.randomUUID().toString()
+            image?.toJpeg(fileName)
+            image?.toMp4(fileName, 10)
         }
     }.awaitAll()
     Unit
+}
+
+fun ImmutableImage.toMp4(nameNoExtension: String, seconds: Int): File {
+    println("Converting to video...")
+    val file = File("$DIRECTORY_OUTPUT/$nameNoExtension.mp4")
+    val channel = NIOUtils.writableFileChannel(file.path)
+    try {
+        val encoder = AWTSequenceEncoder(channel, Rational.R(1, seconds))
+        encoder.encodeImage(this.awt())
+        encoder.finish()
+    } finally {
+        NIOUtils.closeQuietly(channel)
+    }
+    return file
 }
 
 
@@ -152,9 +169,9 @@ fun getImageStreamOrNull(imageUrl: String): InputStream? {
     return response.body?.byteStream()
 }
 
-fun ImmutableImage.write(nameWithExtension: String) {
+fun ImmutableImage.toJpeg(nameNoExtension: String) {
     val writer = JpegWriter().withCompression(50)
-    val file = output(writer, File("$DIRECTORY_OUTPUT/$nameWithExtension.jpeg"))
+    val file = output(writer, File("$DIRECTORY_OUTPUT/$nameNoExtension.jpeg"))
     println("Created : ${file.absoluteFile}")
 }
 

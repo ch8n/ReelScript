@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base href="//error.c.cdn77.org/" target="_blank">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="author" content="(c) CDN77">
+    <meta name="description" content="">
+    <meta name="keywords" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="nofollow" />
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="shortcut icon" href="img/favicon.ico" />
+
+    <title>Website is offline - Gateway time-out</title>
+</head>
+<body>
+    <header class="Header">
+        <div class="Header-wrap">
+            <span class="Header-errorNumber">Error 504</span>
+            <h1 class="Header-title">Website is offline - Gateway time-out</h1>
+            <div class="Header-description">CDN77 server haven't received a timely response from origin server.</div><img src="img/error-scheme.png" alt="Gateway time-out" class="Header-scheme">
+        </div>
+    </header>
+    <section class="Section Section--errorBottom">
+        <div class="Section-wrap">
+            <div class="WhatToDo">
+                <div class="WhatToDo-column">
+                    <h3 class="WhatToDo-title">If you're a <strong>Visitor...</strong></h3>
+                    <div class="WhatToDo-description"><p>Please try again in a few minutes. If the problem persists for more than 30 minutes, try contacting website owner via a different channel.</p></div>
+                </div>
+                <div class="WhatToDo-column">
+                    <h3 class="WhatToDo-title">As the <strong>Website administrator...</strong></h3>
+                    <div class="WhatToDo-description"><p>Take a look at the article on <a href="https://client.cdn77.com/support/knowledgebase/cdn-resource/troubleshooting-error-messages" class="common-link">troubleshooting error messages</a> in our knowledgebase.</p></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</body>
+</html>
