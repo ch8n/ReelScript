@@ -23,39 +23,50 @@ suspend fun main() = coroutineScope {
     println("${image.width} X ${image.height} | ${image.ratio()}")
 
     println("Cropping to reel size!")
-    val imageCropped = image.cropReelSize()
+    val reelImageSize = Size(1080, 1920)
+    val imageCropped = image.cropSize(reelImageSize)
     println("${imageCropped.width} X ${imageCropped.height} | ${imageCropped.ratio()}")
     imageCropped.write("result1")
 
     println("Appending Quote")
-    val quote = "LoreIpsome sample is added to image!"
+    val quote =
+        "Here strange creatures are watching the kotlin logo. You can drag'n'drop them as well as the logo. Doubleclick to add more creatures but be careful. They may be watching you!"
+
     val awtImage: BufferedImage = imageCropped.awt()
-    val (imageWidth, imageHeight) = 1080 to 1920
     val imageWithQuote = with(awtImage) {
         val graphics = graphics
-        val font = Font(Font.MONOSPACED, Font.PLAIN, 46)
+        val font = Font(Font.MONOSPACED, Font.PLAIN, 52)
         val fontMetrics: FontMetrics = graphics.getFontMetrics(font)
 
-        // text attribute
-        val attributedText = AttributedString(quote)
-        attributedText.addAttribute(TextAttribute.FONT, font)
-        attributedText.addAttribute(TextAttribute.FOREGROUND, Color.GREEN)
+        val lines = quote.getBoundFormattedLines(reelImageSize.center, fontMetrics)
+        val maxWidth = lines.maxOf { fontMetrics.stringWidth(it) }
+        val height = fontMetrics.height * lines.size
+        val quoteSize = Size(width = maxWidth, height = height)
 
-        // text position - Centalized
-        val positionX: Int = (imageWidth - fontMetrics.stringWidth(quote)) / 2
-        val positionY: Int = ((imageHeight - fontMetrics.height) / 2) + fontMetrics.ascent
+        var yLoc = (reelImageSize.center.height - quoteSize.center.height) + fontMetrics.ascent
+        val xLoc = reelImageSize.center.width - quoteSize.center.width
 
-        // draw text
-        graphics.drawString(attributedText.iterator, positionX, positionY)
+        lines.forEach { line ->
+            val attributedText = AttributedString(line)
+            attributedText.addAttribute(TextAttribute.FONT, font)
+            attributedText.addAttribute(TextAttribute.FOREGROUND, Color.GREEN)
+            graphics.drawString(attributedText.iterator, xLoc, yLoc)
+            yLoc += fontMetrics.height
+        }
+
         ImmutableImage.fromAwt(this)
     }
     imageWithQuote.write("result2")
     Unit
 }
 
-fun ImmutableImage.cropReelSize(): ImmutableImage {
-    val window = 1080 to 1920
-    return cover(window.first, window.second)
+data class Size(val width: Int, val height: Int) {
+    val center get() = this.copy(width = width / 2, height = height / 2)
+}
+
+
+fun ImmutableImage.cropSize(size: Size): ImmutableImage {
+    return cover(size.width, size.height)
 }
 
 fun resetDirectory() {
@@ -77,3 +88,25 @@ fun ImmutableImage.write(nameWithExtension: String) {
     val file = output(writer, File("$DIRECTORY_OUTPUT/$nameWithExtension.jpeg"))
     println("Created : ${file.absoluteFile}")
 }
+
+fun String.getBoundFormattedLines(bounds: Size, fontMetrics: FontMetrics): List<String> {
+    val input = this
+    val words = input.split(" ")
+    val windowWidth = bounds.width
+    var lineStart = ""
+    val lines = mutableListOf<String>()
+    words.forEachIndexed { index, word ->
+        lineStart = "$lineStart $word"
+        val widthOnWindow = fontMetrics.stringWidth(lineStart)
+        val isFittingOnWindow = widthOnWindow < windowWidth
+        if (!isFittingOnWindow) {
+            lines.add(lineStart)
+            lineStart = ""
+        }
+    }
+    if (lineStart.isNotEmpty()) {
+        lines.add(lineStart)
+    }
+    return lines
+}
+
