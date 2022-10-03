@@ -1,4 +1,8 @@
 import com.sksamuel.scrimage.ImmutableImage
+import com.sksamuel.scrimage.composite.AlphaComposite
+import com.sksamuel.scrimage.composite.OverlayComposite
+import com.sksamuel.scrimage.filter.AlphaMaskFilter
+import com.sksamuel.scrimage.filter.BlurFilter
 import com.sksamuel.scrimage.nio.JpegWriter
 import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
@@ -9,6 +13,7 @@ import java.awt.image.BufferedImage
 import java.io.File
 import java.io.InputStream
 import java.text.AttributedString
+import kotlin.math.roundToInt
 
 
 const val DIRECTORY_OUTPUT = "output"
@@ -35,7 +40,7 @@ suspend fun main() = coroutineScope {
     val awtImage: BufferedImage = imageCropped.awt()
     val imageWithQuote = with(awtImage) {
         val graphics = graphics
-        val font = Font(Font.MONOSPACED, Font.PLAIN, 52)
+        val font = Font(Font.MONOSPACED, Font.BOLD, 52)
         val fontMetrics: FontMetrics = graphics.getFontMetrics(font)
 
         val lines = quote.getBoundFormattedLines(reelImageSize.center, fontMetrics)
@@ -43,8 +48,23 @@ suspend fun main() = coroutineScope {
         val height = fontMetrics.height * lines.size
         val quoteSize = Size(width = maxWidth, height = height)
 
+        val blurFontBg = imageCropped
+            .cropSize(
+                quoteSize.copy(
+                    width = quoteSize.width + 50,
+                    height = quoteSize.height + 50,
+                )
+            )
+            .filter(BlurFilter())
+
+        blurFontBg.write("result3")
+
         var yLoc = (reelImageSize.center.height - quoteSize.center.height) + fontMetrics.ascent
         val xLoc = reelImageSize.center.width - quoteSize.center.width
+
+        val overlay = imageCropped.overlay(
+            blurFontBg, xLoc, yLoc - (fontMetrics.ascent * 1.5).roundToInt()
+        )
 
         lines.forEach { line ->
             val attributedText = AttributedString(line)
@@ -54,7 +74,10 @@ suspend fun main() = coroutineScope {
             yLoc += fontMetrics.height
         }
 
-        ImmutableImage.fromAwt(this)
+        ImmutableImage.fromAwt(this).composite(
+            OverlayComposite(1.0),
+            overlay
+        )
     }
     imageWithQuote.write("result2")
     Unit
