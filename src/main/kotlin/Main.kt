@@ -1,8 +1,18 @@
 import com.sksamuel.scrimage.ImmutableImage
+import com.sksamuel.scrimage.Position
 import com.sksamuel.scrimage.composite.AlphaComposite
+import com.sksamuel.scrimage.composite.ColorBurnComposite
+import com.sksamuel.scrimage.composite.ColorComposite
+import com.sksamuel.scrimage.composite.GlowComposite
+import com.sksamuel.scrimage.composite.LuminosityComposite
 import com.sksamuel.scrimage.composite.OverlayComposite
+import com.sksamuel.scrimage.composite.RedComposite
+import com.sksamuel.scrimage.composite.SaturationComposite
+import com.sksamuel.scrimage.composite.ScreenComposite
+import com.sksamuel.scrimage.composite.SubtractComposite
 import com.sksamuel.scrimage.filter.AlphaMaskFilter
 import com.sksamuel.scrimage.filter.BlurFilter
+import com.sksamuel.scrimage.filter.BorderFilter
 import com.sksamuel.scrimage.nio.JpegWriter
 import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
@@ -22,7 +32,8 @@ suspend fun main() = coroutineScope {
     resetDirectory()
 
     println("Getting images!")
-    val imageUrl = "https://i.picsum.photos/id/893/4342/2895.jpg?hmac=fQQo3ufVfIXHYgZrJgCHACadJMc9Uw0We_nFVRIbzcM"
+    val imageUrl =
+        "https://images.unsplash.com/photo-1518837321959-58dfc718abcf?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
     val imageStream = getImageStreamOrNull(imageUrl) ?: return@coroutineScope
     val image = ImmutableImage.loader().fromStream(imageStream)
     println("${image.width} X ${image.height} | ${image.ratio()}")
@@ -37,7 +48,7 @@ suspend fun main() = coroutineScope {
     val quote =
         "Here strange creatures are watching the kotlin logo. You can drag'n'drop them as well as the logo. Doubleclick to add more creatures but be careful. They may be watching you!"
 
-    val awtImage: BufferedImage = imageCropped.awt()
+    val awtImage = imageCropped.awt()
     val imageWithQuote = with(awtImage) {
         val graphics = graphics
         val font = Font(Font.MONOSPACED, Font.BOLD, 52)
@@ -48,36 +59,27 @@ suspend fun main() = coroutineScope {
         val height = fontMetrics.height * lines.size
         val quoteSize = Size(width = maxWidth, height = height)
 
-        val blurFontBg = imageCropped
-            .cropSize(
-                quoteSize.copy(
-                    width = quoteSize.width + 50,
-                    height = quoteSize.height + 50,
-                )
-            )
-            .filter(BlurFilter())
-
-        blurFontBg.write("result3")
-
         var yLoc = (reelImageSize.center.height - quoteSize.center.height) + fontMetrics.ascent
         val xLoc = reelImageSize.center.width - quoteSize.center.width
 
-        val overlay = imageCropped.overlay(
-            blurFontBg, xLoc, yLoc - (fontMetrics.ascent * 1.5).roundToInt()
-        )
-
         lines.forEach { line ->
+            val lineWidth = fontMetrics.stringWidth(line)
             val attributedText = AttributedString(line)
             attributedText.addAttribute(TextAttribute.FONT, font)
-            attributedText.addAttribute(TextAttribute.FOREGROUND, Color.GREEN)
+            attributedText.addAttribute(TextAttribute.FOREGROUND, Color.WHITE)
+            graphics.drawRoundRect(
+                xLoc + (fontMetrics.ascent * 0.25).roundToInt(),
+                yLoc - fontMetrics.ascent,
+                lineWidth,
+                fontMetrics.height,
+                8,
+                8
+            )
             graphics.drawString(attributedText.iterator, xLoc, yLoc)
             yLoc += fontMetrics.height
         }
 
-        ImmutableImage.fromAwt(this).composite(
-            OverlayComposite(1.0),
-            overlay
-        )
+        ImmutableImage.fromAwt(this)
     }
     imageWithQuote.write("result2")
     Unit
