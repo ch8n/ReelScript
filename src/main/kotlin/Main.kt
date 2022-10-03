@@ -3,6 +3,7 @@ import com.sksamuel.scrimage.nio.JpegWriter
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.awt.*
@@ -17,24 +18,54 @@ import kotlin.math.roundToInt
 const val DIRECTORY_OUTPUT = "output"
 
 
-suspend fun main() {
-    coroutineScope {
-        val data = mapOf(
-            Pair(
-                "https://images.unsplash.com/photo-1518837321959-58dfc718abcf?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80",
-                "Here strange creatures are watching the kotlin logo. You can drag'n'drop them as well as the logo. Doubleclick to add more creatures but be careful. They may be watching you!"
-            ),
-        )
-        data.map { (url, quote) ->
-            async {
-                createQuoteImageOrNull(
-                    imageUrl = url,
-                    quote = quote
-                )?.write(UUID.randomUUID().toString())
-            }
-        }.awaitAll()
-    }
+suspend fun main() = runBlocking {
+    val images = listOf(
+        "https://images.unsplash.com/photo-1518837321959-58dfc718abcf?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80",
+        "https://images.unsplash.com/photo-1664575600850-c4b712e6e2bf?ixlib=rb-1.2.1&ixid=MnwxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=687&q=80",
+        "https://images.unsplash.com/photo-1664764118950-ab69f4c40c82?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=735&q=80",
+        "https://images.unsplash.com/photo-1664787862050-898bece221b8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=687&q=80",
+        "https://images.unsplash.com/photo-1664740688843-0e8ad76b07a8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1074&q=80",
+        "https://images.unsplash.com/photo-1664710696502-69589bfc2ef6?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=687&q=80",
+        "https://images.unsplash.com/photo-1664739635995-e56d12cdd4ee?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=688&q=80",
+        "https://images.unsplash.com/photo-1664764119004-999a3f80a1b8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1074&q=80",
+        "https://images.unsplash.com/photo-1664721203281-8547b46c7bc6?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=686&q=80",
+        "https://images.unsplash.com/photo-1664451077966-2f924721ed88?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=687&q=80",
+        "https://images.unsplash.com/photo-1664644882862-9884db2dd5b8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=764&q=80"
+    )
+    val quotes = listOf(
+        "“When I despair, I remember that all through history the way of truth and love have always won. There have been tyrants and murderers, and for a time, they can seem invincible, but in the end, they always fall. Think of it--always.”\n" +
+                "― Mahatma Gandhi",
+        "“Every man has his secret sorrows which the world knows not; and often times we call a man cold when he is only sad.”\n" +
+                "― Henry Wadsworth Longfellow",
+        "“You cannot protect yourself from sadness without protecting yourself from happiness.”\n" +
+                "― Jonathan Safran Foer",
+        "“What you must understand about me is that I’m a deeply unhappy person.”\n" +
+                "― John Green, Looking for Alaska",
+        "“Imagine smiling after a slap in the face. Then think of doing it twenty-four hours a day.”\n" +
+                "― Markus Zusak, The Book Thief",
+        "“Tears are words that need to be written.”\n" +
+                "― Paulo Coelho",
+        "“there are two types of people in the world: those who prefer to be sad among others, and those who prefer to be sad alone.”\n" +
+                "― Nicole Krauss, The History of Love",
+        "“Why do beautiful songs make you sad?' 'Because they aren't true.' 'Never?' 'Nothing is beautiful and true.”\n" +
+                "― Jonathan Safran Foer, Extremely Loud & Incredibly Close",
+        "“I waste at least an hour every day lying in bed. Then I waste time pacing. I waste time thinking. I waste time being quiet and not saying anything because I'm afraid I'll stutter.”\n" +
+                "― Ned Vizzini, It's Kind of a Funny Story"
+    )
+    resetDirectory()
+    (0..100).map {
+        val url = images.shuffled().first()
+        val quote = quotes.shuffled().first()
+        async {
+            createQuoteImageOrNull(
+                imageUrl = url,
+                quote = quote
+            )?.write(UUID.randomUUID().toString())
+        }
+    }.awaitAll()
+    Unit
 }
+
 
 suspend fun createQuoteImageOrNull(
     imageUrl: String,
@@ -42,8 +73,6 @@ suspend fun createQuoteImageOrNull(
     frameSize: Size = Size(1080, 1920),
     fontSize: Int = 52,
 ): ImmutableImage? = runCatching {
-    resetDirectory()
-
     println("Getting images!")
     val imageStream = getImageStreamOrNull(imageUrl) ?: return null
 
