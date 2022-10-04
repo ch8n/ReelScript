@@ -3,10 +3,7 @@ import com.google.gson.annotations.SerializedName
 import com.sksamuel.scrimage.ImmutableImage
 import com.sksamuel.scrimage.nio.JpegWriter
 import dev.ch_n.ReelScript.BuildConfig
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import netscape.javascript.JSObject
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -87,6 +84,30 @@ val sampleImages = listOf(
     "https://images.unsplash.com/photo-1664644882862-9884db2dd5b8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=764&q=80"
 )
 
+
+class AnimeQuoteResponse : ArrayList<AnimeQuoteResponse.AnimeQuoteResponseItem>() {
+    data class AnimeQuoteResponseItem(
+        @SerializedName("anime")
+        val anime: String, // Guilty Crown
+        @SerializedName("character")
+        val character: String, // Gai Tsutsugami
+        @SerializedName("quote")
+        val quote: String // If you value your peaceful everyday life, protect it for yourself.
+    )
+}
+
+fun getRemoteQuote(): List<String> = with(Dispatchers.IO) {
+    return@with kotlin.runCatching {
+        val url = "https://animechan.vercel.app/api/quotes"
+        val okHttpClient = OkHttpClient()
+        val imageRequest = Request.Builder().url(url).build()
+        val response = okHttpClient.newCall(imageRequest).execute()
+        val responseString = response.body?.string() ?: ""
+        val data = Gson().fromJson(responseString, AnimeQuoteResponse::class.java)
+        data.map { "${it.quote} - ${it.character},${it.anime}" }
+    }.getOrNull() ?: emptyList()
+}
+
 val sampleQuotes = listOf(
     "“When I despair, I remember that all through history the way of truth and love have always won. There have been tyrants and murderers, and for a time, they can seem invincible, but in the end, they always fall. Think of it--always.”\n" +
             "― Mahatma Gandhi",
@@ -108,11 +129,17 @@ val sampleQuotes = listOf(
             "― Ned Vizzini, It's Kind of a Funny Story"
 )
 
+
+data class Content(
+    val imageUrl: String,
+    val quote: String,
+    val audioPath: String
+)
+
 suspend fun main() = runBlocking {
 
     val images = getRemoteImages().ifEmpty { sampleImages }
-    val quotes = getRemoteImages().ifEmpty { sampleQuotes }
-
+    val quotes = getRemoteQuote().ifEmpty { sampleQuotes }
     val audioPaths = listOf(
         "audio/sample1.aac",
         "audio/sample2.aac",
@@ -122,30 +149,40 @@ suspend fun main() = runBlocking {
         "audio/sample6.aac",
     )
     resetDirectory()
-    (0..10).map {
-        val randomUrl = images.shuffled().first()
-        val randomQuote = quotes.shuffled().first()
-        val randomAudioPath = audioPaths.shuffled().first()
-        async {
-            val fileName = UUID.randomUUID().toString()
-            val clipDurationInSeconds = 10
-
-            val image = createQuoteImageOrNull(imageUrl = randomUrl, quote = randomQuote)
-
-            val imageFile = image.toJpegOrNull(nameNoExtension = fileName)
-            val mp4File = image.toMp4OrNull(
-                nameNoExtension = fileName,
-                durationSeconds = clipDurationInSeconds
+    val contents = mutableListOf<Content>()
+    quotes.forEach { quote ->
+        val image = images.shuffled().first()
+        val audio = audioPaths.shuffled().first()
+        contents.add(
+            Content(
+                imageUrl = image,
+                quote = quote,
+                audioPath = audio
             )
-            val audioFile = File(randomAudioPath)
-            val mp4withAudio = mp4File.mixAudioOrNull(
-                nameNoExtension = fileName,
-                audioFile = audioFile,
-                durationInSeconds = clipDurationInSeconds
-            )
-        }
-    }.awaitAll()
+        )
+    }
+    contents
+        .map { async { createContent(it.imageUrl, it.quote, it.audioPath) } }
+        .awaitAll()
+    println("created files -> ${contents.size}")
     Unit
+}
+
+suspend fun createContent(imageUrl: String, quote: String, audioPath: String) {
+    val fileName = UUID.randomUUID().toString()
+    val clipDurationInSeconds = 10
+    val image = createQuoteImageOrNull(imageUrl = imageUrl, quote = quote)
+    val imageFile = image.toJpegOrNull(nameNoExtension = fileName)
+    val mp4File = image.toMp4OrNull(
+        nameNoExtension = fileName,
+        durationSeconds = clipDurationInSeconds
+    )
+    val audioFile = File(audioPath)
+    val mp4withAudio = mp4File.mixAudioOrNull(
+        nameNoExtension = fileName,
+        audioFile = audioFile,
+        durationInSeconds = clipDurationInSeconds
+    )
 }
 
 
