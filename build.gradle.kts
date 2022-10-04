@@ -14,7 +14,7 @@ repositories {
 }
 
 buildConfig {
-    //buildConfigField("String", "UNSPLASH_API_KEY", "\"${ReelScriptKeys.UNSPLASH_API_KEY}\"")
+    buildConfigField("String", "UNSPLASH_API_KEY", "\"${ReelScriptKeys.UNSPLASH_API_KEY}\"")
 }
 
 
@@ -28,6 +28,7 @@ dependencies {
     implementation("org.mp4parser:isoparser:1.9.41")
     implementation("org.mp4parser:muxer:1.9.41")
     implementation("org.mp4parser:streaming:1.9.41")
+    implementation("com.google.code.gson:gson:2.9.0")
 }
 
 tasks.withType<KotlinCompile> {
