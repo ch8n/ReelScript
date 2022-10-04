@@ -8,11 +8,19 @@ import okhttp3.Request
 import org.jcodec.api.awt.AWTSequenceEncoder
 import org.jcodec.common.io.NIOUtils
 import org.jcodec.common.model.Rational
+import org.mp4parser.Container
+import org.mp4parser.muxer.FileDataSourceImpl
+import org.mp4parser.muxer.Movie
+import org.mp4parser.muxer.builder.DefaultMp4Builder
+import org.mp4parser.muxer.container.mp4.MovieCreator
+import org.mp4parser.muxer.tracks.AACTrackImpl
+import org.mp4parser.muxer.tracks.ClippedTrack
 import java.awt.Color
 import java.awt.Font
 import java.awt.FontMetrics
 import java.awt.font.TextAttribute
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStream
 import java.text.AttributedString
 import java.util.*
@@ -62,19 +70,53 @@ suspend fun main() = runBlocking {
         async {
             val image = createQuoteImageOrNull(imageUrl = url, quote = quote)
             val fileName = UUID.randomUUID().toString()
-            image?.toJpeg(fileName)
-            image?.toMp4(fileName, 10)
+            val imageFile = image?.toJpeg(nameNoExtension = "image-$fileName")
+            val clipDurationInSeconds = 10
+            val mp4File = image?.toMp4(
+                nameNoExtension = "noAudio-$fileName",
+                durationSeconds = clipDurationInSeconds
+            )
+            val audioFile = File("audio/sample.aac")
+            val mp4withAudio = mp4File?.mixAudio(
+                nameNoExtension = "withAudio$fileName",
+                audioFile = audioFile,
+                durationInSeconds = clipDurationInSeconds
+            )
         }
     }.awaitAll()
     Unit
 }
 
-fun ImmutableImage.toMp4(nameNoExtension: String, seconds: Int): File {
+
+fun File.mixAudio(nameNoExtension: String, audioFile: File, durationInSeconds: Int): File {
+    val videoMovie = MovieCreator.build(this.path)
+    val audioTrack = AACTrackImpl(FileDataSourceImpl(audioFile))
+    val clippedTrack = ClippedTrack(audioTrack, 0, 45 * durationInSeconds.toLong())
+    val movie = Movie()
+    videoMovie.tracks.forEach {
+        when (it.handler) {
+            "soun" -> println("Adding audio track to new movie")
+            "vide" -> println("Adding video track to new movie")
+            else -> println("Adding " + it.handler + " track to new movie")
+        }
+        movie.addTrack(it)
+    }
+    //movie.addTrack(audioTrack)
+    movie.addTrack(clippedTrack)
+    val mp4Container: Container = DefaultMp4Builder().build(movie)
+    val mp4WithAudioFile = File("${DIRECTORY_OUTPUT}/$nameNoExtension.mp4")
+    val fc = FileOutputStream(mp4WithAudioFile).channel
+    mp4Container.writeContainer(fc)
+    fc.close()
+    return mp4WithAudioFile
+}
+
+fun ImmutableImage.toMp4(nameNoExtension: String, durationSeconds: Int): File {
     println("Converting to video...")
     val file = File("$DIRECTORY_OUTPUT/$nameNoExtension.mp4")
     val channel = NIOUtils.writableFileChannel(file.path)
     try {
-        val encoder = AWTSequenceEncoder(channel, Rational.R(1, seconds))
+        val encoder = AWTSequenceEncoder(channel, Rational.R(1, durationSeconds))
         encoder.encodeImage(this.awt())
         encoder.finish()
     } finally {
@@ -169,10 +211,11 @@ fun getImageStreamOrNull(imageUrl: String): InputStream? {
     return response.body?.byteStream()
 }
 
-fun ImmutableImage.toJpeg(nameNoExtension: String) {
+fun ImmutableImage.toJpeg(nameNoExtension: String): File {
     val writer = JpegWriter().withCompression(50)
     val file = output(writer, File("$DIRECTORY_OUTPUT/$nameNoExtension.jpeg"))
     println("Created : ${file.absoluteFile}")
+    return file
 }
 
 fun String.getBoundFormattedLines(bounds: Size, fontMetrics: FontMetrics): List<String> {

@@ -19,6 +19,9 @@ dependencies {
     implementation("com.sksamuel.scrimage:scrimage-filters:4.0.32")
     implementation("org.jcodec:jcodec:0.2.5")
     implementation("org.jcodec:jcodec-javase:0.2.5")
+    implementation("org.mp4parser:isoparser:1.9.41")
+    implementation("org.mp4parser:muxer:1.9.41")
+    implementation("org.mp4parser:streaming:1.9.41")
 }
 
 tasks.withType<KotlinCompile> {
