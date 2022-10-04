@@ -1,5 +1,6 @@
 import com.sksamuel.scrimage.ImmutableImage
 import com.sksamuel.scrimage.nio.JpegWriter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -80,16 +81,18 @@ suspend fun main() = runBlocking {
         val randomQuote = quotes.shuffled().first()
         val randomAudioPath = audioPaths.shuffled().first()
         async {
-            val image = createQuoteImageOrNull(imageUrl = randomUrl, quote = randomQuote)
             val fileName = UUID.randomUUID().toString()
-            val imageFile = image?.toJpeg(nameNoExtension = fileName)
             val clipDurationInSeconds = 10
-            val mp4File = image?.toMp4(
+
+            val image = createQuoteImageOrNull(imageUrl = randomUrl, quote = randomQuote)
+
+            val imageFile = image.toJpegOrNull(nameNoExtension = fileName)
+            val mp4File = image.toMp4OrNull(
                 nameNoExtension = fileName,
                 durationSeconds = clipDurationInSeconds
             )
             val audioFile = File(randomAudioPath)
-            val mp4withAudio = mp4File?.mixAudio(
+            val mp4withAudio = mp4File.mixAudioOrNull(
                 nameNoExtension = fileName,
                 audioFile = audioFile,
                 durationInSeconds = clipDurationInSeconds
@@ -100,104 +103,117 @@ suspend fun main() = runBlocking {
 }
 
 
-fun File.mixAudio(nameNoExtension: String, audioFile: File, durationInSeconds: Int): File {
-    val videoMovie = MovieCreator.build(this.path)
-    val audioTrack = AACTrackImpl(FileDataSourceImpl(audioFile))
-    val clippedTrack = ClippedTrack(audioTrack, 0, durationInSeconds * 45L)
-    val movie = Movie()
-    videoMovie.tracks.forEach {
-        when (it.handler) {
-            "soun" -> println("Adding audio track to new movie")
-            "vide" -> println("Adding video track to new movie")
-            else -> println("Adding " + it.handler + " track to new movie")
-        }
-        movie.addTrack(it)
+fun File?.mixAudioOrNull(nameNoExtension: String, audioFile: File, durationInSeconds: Int): File? {
+    val file = this ?: return null
+    return with(Dispatchers.IO) {
+        kotlin.runCatching {
+            val videoMovie = MovieCreator.build(file.path)
+            val audioTrack = AACTrackImpl(FileDataSourceImpl(audioFile))
+            val clippedTrack = ClippedTrack(audioTrack, 0, durationInSeconds * 45L)
+            val movie = Movie()
+            videoMovie.tracks.forEach {
+                when (it.handler) {
+                    "soun" -> println("Adding audio track to new movie")
+                    "vide" -> println("Adding video track to new movie")
+                    else -> println("Adding " + it.handler + " track to new movie")
+                }
+                movie.addTrack(it)
+            }
+            movie.addTrack(clippedTrack)
+            val mp4Container: Container = DefaultMp4Builder().build(movie)
+            val mp4WithAudioFile = File("$DIRECTORY_WITH_AUDIO/$nameNoExtension.mp4")
+            val fc = FileOutputStream(mp4WithAudioFile).channel
+            mp4Container.writeContainer(fc)
+            fc.close()
+            mp4WithAudioFile
+        }.getOrNull()
     }
-    movie.addTrack(clippedTrack)
-    val mp4Container: Container = DefaultMp4Builder().build(movie)
-    val mp4WithAudioFile = File("$DIRECTORY_WITH_AUDIO/$nameNoExtension.mp4")
-    val fc = FileOutputStream(mp4WithAudioFile).channel
-    mp4Container.writeContainer(fc)
-    fc.close()
-    return mp4WithAudioFile
 }
 
-fun ImmutableImage.toMp4(nameNoExtension: String, durationSeconds: Int): File {
-    println("Converting to video...")
-    val file = File("$DIRECTORY_NO_AUDIO/$nameNoExtension.mp4")
-    val channel = NIOUtils.writableFileChannel(file.path)
-    try {
-        val encoder = AWTSequenceEncoder(channel, Rational.R(1, durationSeconds))
-        encoder.encodeImage(this.awt())
-        encoder.finish()
-    } finally {
-        NIOUtils.closeQuietly(channel)
-    }
-    return file
-}
 
+fun ImmutableImage?.toMp4OrNull(nameNoExtension: String, durationSeconds: Int): File? {
+    val img = this ?: return null
+    return with(Dispatchers.IO) {
+        kotlin.runCatching {
+            println("Converting to video...")
+            val file = File("$DIRECTORY_NO_AUDIO/$nameNoExtension.mp4")
+            val channel = NIOUtils.writableFileChannel(file.path)
+            try {
+                val encoder = AWTSequenceEncoder(channel, Rational.R(1, durationSeconds))
+                encoder.encodeImage(img.awt())
+                encoder.finish()
+            } finally {
+                NIOUtils.closeQuietly(channel)
+            }
+            file
+        }.getOrNull()
+    }
+}
 
 suspend fun createQuoteImageOrNull(
     imageUrl: String,
     quote: String,
     frameSize: Size = Size(1080, 1920),
     fontSize: Int = 52,
-): ImmutableImage? = runCatching {
-    println("Getting images!")
-    val imageStream = getImageStreamOrNull(imageUrl) ?: return null
+): ImmutableImage? = with(Dispatchers.IO) {
+    runCatching {
+        println("Getting images!")
+        val imageStream = getImageStreamOrNull(imageUrl) ?: return null
 
-    println("Cropping to size!")
-    val originalImage = ImmutableImage.loader().fromStream(imageStream)
-    println("Original : ${originalImage.width} X ${originalImage.height} | ${originalImage.ratio()}")
+        println("Cropping to size!")
+        val originalImage = ImmutableImage.loader().fromStream(imageStream)
+        println("Original : ${originalImage.width} X ${originalImage.height} | ${originalImage.ratio()}")
 
-    val imageCropped = originalImage.cropSize(frameSize)
-    println("Cropped : ${imageCropped.width} X ${imageCropped.height} | ${imageCropped.ratio()}")
+        val imageCropped = originalImage.cropSize(frameSize)
+        println("Cropped : ${imageCropped.width} X ${imageCropped.height} | ${imageCropped.ratio()}")
 
-    println("Appending Quote")
-    val awtImage = imageCropped.awt()
-    val imageWithQuote = with(awtImage) {
-        val graphics = graphics
-        val font = Font(Font.MONOSPACED, Font.BOLD, fontSize)
-        val fontMetrics: FontMetrics = graphics.getFontMetrics(font)
+        println("Appending Quote")
+        val awtImage = imageCropped.awt()
+        val imageWithQuote = with(awtImage) {
+            val graphics = graphics
+            val font = Font(Font.MONOSPACED, Font.BOLD, fontSize)
+            val fontMetrics: FontMetrics = graphics.getFontMetrics(font)
 
-        val lines = quote.getBoundFormattedLines(frameSize.center, fontMetrics)
-        val maxWidth = lines.maxOf { fontMetrics.stringWidth(it) }
-        val height = fontMetrics.height * lines.size
-        val quoteSize = Size(width = maxWidth, height = height)
+            val lines = quote.getBoundFormattedLines(frameSize.center, fontMetrics)
+            val maxWidth = lines.maxOf { fontMetrics.stringWidth(it) }
+            val height = fontMetrics.height * lines.size
+            val quoteSize = Size(width = maxWidth, height = height)
 
-        var yLoc = (frameSize.center.height - quoteSize.center.height) + fontMetrics.ascent
-        val xLoc = frameSize.center.width - quoteSize.center.width
+            var yLoc = (frameSize.center.height - quoteSize.center.height) + fontMetrics.ascent
+            val xLoc = frameSize.center.width - quoteSize.center.width
 
-        lines.forEach { line ->
-            val lineWidth = fontMetrics.stringWidth(line)
-            val attributedText = AttributedString(line)
-            attributedText.addAttribute(TextAttribute.FONT, font)
-            attributedText.addAttribute(TextAttribute.FOREGROUND, Color.WHITE)
-            graphics.color = Color.BLACK
-            graphics.fill3DRect(
-                xLoc + (fontMetrics.ascent * 0.25).roundToInt(),
-                yLoc - fontMetrics.ascent,
-                lineWidth,
-                fontMetrics.height,
-                true
-            )
-            graphics.color = Color.WHITE
-            graphics.drawRoundRect(
-                xLoc + (fontMetrics.ascent * 0.25).roundToInt(),
-                yLoc - fontMetrics.ascent,
-                lineWidth,
-                fontMetrics.height,
-                8,
-                8
-            )
-            graphics.drawString(attributedText.iterator, xLoc, yLoc)
-            yLoc += fontMetrics.height
+            lines.forEach { line ->
+                val lineWidth = fontMetrics.stringWidth(line)
+                val attributedText = AttributedString(line)
+                attributedText.addAttribute(TextAttribute.FONT, font)
+                attributedText.addAttribute(TextAttribute.FOREGROUND, Color.WHITE)
+                graphics.color = Color.BLACK
+                graphics.fill3DRect(
+                    xLoc + (fontMetrics.ascent * 0.25).roundToInt(),
+                    yLoc - fontMetrics.ascent,
+                    lineWidth,
+                    fontMetrics.height,
+                    true
+                )
+                graphics.color = Color.WHITE
+                graphics.drawRoundRect(
+                    xLoc + (fontMetrics.ascent * 0.25).roundToInt(),
+                    yLoc - fontMetrics.ascent,
+                    lineWidth,
+                    fontMetrics.height,
+                    8,
+                    8
+                )
+                graphics.drawString(attributedText.iterator, xLoc, yLoc)
+                yLoc += fontMetrics.height
+            }
+
+            ImmutableImage.fromAwt(this)
         }
+        return imageWithQuote
+    }.getOrNull()
+}
 
-        ImmutableImage.fromAwt(this)
-    }
-    return imageWithQuote
-}.getOrNull()
 
 data class Size(val width: Int, val height: Int) {
     val center get() = this.copy(width = width / 2, height = height / 2)
@@ -228,11 +244,16 @@ fun getImageStreamOrNull(imageUrl: String): InputStream? {
     return response.body?.byteStream()
 }
 
-fun ImmutableImage.toJpeg(nameNoExtension: String): File {
-    val writer = JpegWriter().withCompression(50)
-    val file = output(writer, File("$DIRECTORY_OUTPUT/images/$nameNoExtension.jpeg"))
-    println("Created : ${file.absoluteFile}")
-    return file
+fun ImmutableImage?.toJpegOrNull(nameNoExtension: String): File? {
+    val img = this ?: return null
+    return with(Dispatchers.IO) {
+        kotlin.runCatching {
+            val writer = JpegWriter().withCompression(50)
+            val file = img.output(writer, File("$DIRECTORY_OUTPUT/images/$nameNoExtension.jpeg"))
+            println("Created : ${file?.absoluteFile}")
+            file
+        }.getOrNull()
+    }
 }
 
 fun String.getBoundFormattedLines(bounds: Size, fontMetrics: FontMetrics): List<String> {
