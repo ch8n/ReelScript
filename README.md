@@ -1,2 +1,2 @@
 # KuoteBot
-KotlinScript to generate Quotes with Background
+KotlinScript to generate Quotes with Background and Music
