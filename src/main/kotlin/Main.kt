@@ -66,12 +66,14 @@ suspend fun main() = runBlocking {
         "“I waste at least an hour every day lying in bed. Then I waste time pacing. I waste time thinking. I waste time being quiet and not saying anything because I'm afraid I'll stutter.”\n" +
                 "― Ned Vizzini, It's Kind of a Funny Story"
     )
+    val audioPaths = listOf("audio/sample.aac")
     resetDirectory()
-    (0..0).map {
-        val url = images.shuffled().first()
-        val quote = quotes.shuffled().first()
+    (0..10).map {
+        val randomUrl = images.shuffled().first()
+        val randomQuote = quotes.shuffled().first()
+        val randomAudioPath = audioPaths.shuffled().first()
         async {
-            val image = createQuoteImageOrNull(imageUrl = url, quote = quote)
+            val image = createQuoteImageOrNull(imageUrl = randomUrl, quote = randomQuote)
             val fileName = UUID.randomUUID().toString()
             val imageFile = image?.toJpeg(nameNoExtension = fileName)
             val clipDurationInSeconds = 10
@@ -79,7 +81,7 @@ suspend fun main() = runBlocking {
                 nameNoExtension = fileName,
                 durationSeconds = clipDurationInSeconds
             )
-            val audioFile = File("audio/sample.aac")
+            val audioFile = File(randomAudioPath)
             val mp4withAudio = mp4File?.mixAudio(
                 nameNoExtension = fileName,
                 audioFile = audioFile,
@@ -104,7 +106,6 @@ fun File.mixAudio(nameNoExtension: String, audioFile: File, durationInSeconds: I
         }
         movie.addTrack(it)
     }
-    //movie.addTrack(audioTrack)
     movie.addTrack(clippedTrack)
     val mp4Container: Container = DefaultMp4Builder().build(movie)
     val mp4WithAudioFile = File("$DIRECTORY_WITH_AUDIO/$nameNoExtension.mp4")
