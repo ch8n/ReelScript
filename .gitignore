@@ -5,7 +5,7 @@
 # Covers files to be ignored for android development using Android Studio.
 .idea
 output/*
-secrets.gradle.kts
+Secrets.kts
 
 # Built application files
 *.apk

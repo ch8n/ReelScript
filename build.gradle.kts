@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") version "1.7.20"
     application
+    id("com.github.gmazzo.buildconfig") version "3.1.0"
 }
 
 group = "dev.ch8n"
@@ -11,6 +12,11 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
 }
+
+buildConfig {
+    //buildConfigField("String", "UNSPLASH_API_KEY", "\"${ReelScriptKeys.UNSPLASH_API_KEY}\"")
+}
+
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
