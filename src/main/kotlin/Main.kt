@@ -66,7 +66,14 @@ suspend fun main() = runBlocking {
         "“I waste at least an hour every day lying in bed. Then I waste time pacing. I waste time thinking. I waste time being quiet and not saying anything because I'm afraid I'll stutter.”\n" +
                 "― Ned Vizzini, It's Kind of a Funny Story"
     )
-    val audioPaths = listOf("audio/sample.aac")
+    val audioPaths = listOf(
+        "audio/sample1.aac",
+        "audio/sample2.aac",
+        "audio/sample3.aac",
+        "audio/sample4.aac",
+        "audio/sample5.aac",
+        "audio/sample6.aac",
+    )
     resetDirectory()
     (0..10).map {
         val randomUrl = images.shuffled().first()
@@ -96,7 +103,7 @@ suspend fun main() = runBlocking {
 fun File.mixAudio(nameNoExtension: String, audioFile: File, durationInSeconds: Int): File {
     val videoMovie = MovieCreator.build(this.path)
     val audioTrack = AACTrackImpl(FileDataSourceImpl(audioFile))
-    val clippedTrack = ClippedTrack(audioTrack, 0, 45 * durationInSeconds.toLong())
+    val clippedTrack = ClippedTrack(audioTrack, 0, durationInSeconds * 45L)
     val movie = Movie()
     videoMovie.tracks.forEach {
         when (it.handler) {
