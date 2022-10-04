@@ -28,6 +28,9 @@ import kotlin.math.roundToInt
 
 
 const val DIRECTORY_OUTPUT = "output"
+const val DIRECTORY_IMAGES = "$DIRECTORY_OUTPUT/images"
+const val DIRECTORY_NO_AUDIO = "$DIRECTORY_OUTPUT/no-audio"
+const val DIRECTORY_WITH_AUDIO = "$DIRECTORY_OUTPUT/with-audio"
 
 suspend fun main() = runBlocking {
     val images = listOf(
@@ -70,15 +73,15 @@ suspend fun main() = runBlocking {
         async {
             val image = createQuoteImageOrNull(imageUrl = url, quote = quote)
             val fileName = UUID.randomUUID().toString()
-            val imageFile = image?.toJpeg(nameNoExtension = "image-$fileName")
+            val imageFile = image?.toJpeg(nameNoExtension = fileName)
             val clipDurationInSeconds = 10
             val mp4File = image?.toMp4(
-                nameNoExtension = "noAudio-$fileName",
+                nameNoExtension = fileName,
                 durationSeconds = clipDurationInSeconds
             )
             val audioFile = File("audio/sample.aac")
             val mp4withAudio = mp4File?.mixAudio(
-                nameNoExtension = "withAudio$fileName",
+                nameNoExtension = fileName,
                 audioFile = audioFile,
                 durationInSeconds = clipDurationInSeconds
             )
@@ -104,7 +107,7 @@ fun File.mixAudio(nameNoExtension: String, audioFile: File, durationInSeconds: I
     //movie.addTrack(audioTrack)
     movie.addTrack(clippedTrack)
     val mp4Container: Container = DefaultMp4Builder().build(movie)
-    val mp4WithAudioFile = File("${DIRECTORY_OUTPUT}/$nameNoExtension.mp4")
+    val mp4WithAudioFile = File("$DIRECTORY_WITH_AUDIO/$nameNoExtension.mp4")
     val fc = FileOutputStream(mp4WithAudioFile).channel
     mp4Container.writeContainer(fc)
     fc.close()
@@ -113,7 +116,7 @@ fun File.mixAudio(nameNoExtension: String, audioFile: File, durationInSeconds: I
 
 fun ImmutableImage.toMp4(nameNoExtension: String, durationSeconds: Int): File {
     println("Converting to video...")
-    val file = File("$DIRECTORY_OUTPUT/$nameNoExtension.mp4")
+    val file = File("$DIRECTORY_NO_AUDIO/$nameNoExtension.mp4")
     val channel = NIOUtils.writableFileChannel(file.path)
     try {
         val encoder = AWTSequenceEncoder(channel, Rational.R(1, durationSeconds))
@@ -199,9 +202,15 @@ fun ImmutableImage.cropSize(size: Size): ImmutableImage {
 
 fun resetDirectory() {
     println("Clean up!")
-    val file = File(DIRECTORY_OUTPUT)
-    file.deleteRecursively()
-    file.mkdir()
+    val parentDirectory = File(DIRECTORY_OUTPUT)
+    parentDirectory.deleteRecursively()
+    val imageDirectory = File(DIRECTORY_IMAGES)
+    val noAudiDirectory = File(DIRECTORY_NO_AUDIO)
+    val audiDirectory = File(DIRECTORY_WITH_AUDIO)
+    parentDirectory.mkdir()
+    imageDirectory.mkdir()
+    noAudiDirectory.mkdir()
+    audiDirectory.mkdir()
 }
 
 fun getImageStreamOrNull(imageUrl: String): InputStream? {
@@ -213,7 +222,7 @@ fun getImageStreamOrNull(imageUrl: String): InputStream? {
 
 fun ImmutableImage.toJpeg(nameNoExtension: String): File {
     val writer = JpegWriter().withCompression(50)
-    val file = output(writer, File("$DIRECTORY_OUTPUT/$nameNoExtension.jpeg"))
+    val file = output(writer, File("$DIRECTORY_OUTPUT/images/$nameNoExtension.jpeg"))
     println("Created : ${file.absoluteFile}")
     return file
 }
