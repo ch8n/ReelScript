@@ -4,7 +4,8 @@ import com.sksamuel.scrimage.ImmutableImage
 import com.sksamuel.scrimage.nio.JpegWriter
 import dev.ch_n.ReelScript.BuildConfig
 import kotlinx.coroutines.*
-import netscape.javascript.JSObject
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jcodec.api.awt.AWTSequenceEncoder
@@ -34,7 +35,6 @@ const val DIRECTORY_IMAGES = "$DIRECTORY_OUTPUT/images"
 const val DIRECTORY_NO_AUDIO = "$DIRECTORY_OUTPUT/no-audio"
 const val DIRECTORY_WITH_AUDIO = "$DIRECTORY_OUTPUT/with-audio"
 
-
 class UnsplashResponse : ArrayList<UnsplashResponse.UnsplashResponseItem>() {
     data class UnsplashResponseItem(
         @SerializedName("urls")
@@ -57,17 +57,41 @@ class UnsplashResponse : ArrayList<UnsplashResponse.UnsplashResponseItem>() {
     }
 }
 
-suspend fun getRemoteImages(): List<String> = with(Dispatchers.IO) {
+suspend fun unsplashImages(): List<String> {
+    val url = "https://api.unsplash.com/photos/?client_id=${BuildConfig.UNSPLASH_API_KEY}"
+    val response = getResponseString(url)
+    val data = Gson().fromJson(response, UnsplashResponse::class.java)
+    return data.map { it.urls.regular }
+}
+
+suspend fun getResponseString(url: String): String = with(Dispatchers.IO) {
     return@with kotlin.runCatching {
-        val url = "https://api.unsplash.com/photos/?client_id=${BuildConfig.UNSPLASH_API_KEY}"
         val okHttpClient = OkHttpClient()
         val imageRequest = Request.Builder().url(url).build()
         val response = okHttpClient.newCall(imageRequest).execute()
-        val responseString = response.body?.string() ?: ""
-        val data = Gson().fromJson(responseString, UnsplashResponse::class.java)
-        val urls = data.map { it.urls.regular }
-        urls
-    }.getOrNull() ?: emptyList()
+        response.body?.string()
+    }.getOrNull() ?: ""
+}
+
+data class AnimeResponse(
+    @SerializedName("images")
+    val images: List<Image>
+) {
+    data class Image(
+        @SerializedName("dominant_color")
+        val dominantColor: String, // #282831
+        @SerializedName("source")
+        val source: String, // https://www.pixiv.net/en/artworks/84060246
+        @SerializedName("url")
+        val url: String, // https://cdn.waifu.im/7529.jpg
+    )
+}
+
+suspend fun getAnimeImages(): List<String> {
+    val url = "https://api.waifu.im/random/?is_nsfw=false&gif=false&many=true&full=false"
+    val response = getResponseString(url)
+    val data = Gson().fromJson(response, AnimeResponse::class.java)
+    return data.images.map { it.url }
 }
 
 val sampleImages = listOf(
@@ -138,7 +162,7 @@ data class Content(
 
 suspend fun main() = runBlocking {
 
-    val images = getRemoteImages().ifEmpty { sampleImages }
+    val images = getAnimeImages().ifEmpty { unsplashImages() }.ifEmpty { sampleImages }
     val quotes = getRemoteQuote().ifEmpty { sampleQuotes }
     val audioPaths = listOf(
         "audio/sample1.aac",
@@ -150,9 +174,9 @@ suspend fun main() = runBlocking {
     )
     resetDirectory()
     val contents = mutableListOf<Content>()
-    quotes.forEach { quote ->
-        val image = images.shuffled().first()
-        val audio = audioPaths.shuffled().first()
+    quotes.forEachIndexed { index, quote ->
+        val image = images.getOrNull(index) ?: images.shuffled().first()
+        val audio = audioPaths.getOrNull(index) ?: audioPaths.shuffled().first()
         contents.add(
             Content(
                 imageUrl = image,
