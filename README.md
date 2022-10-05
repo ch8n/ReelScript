@@ -3,8 +3,6 @@ KotlinScript to generate Quotes with Background and Music
 
 https://user-images.githubusercontent.com/11576342/193983634-cec94715-17b8-4bf1-8570-b2a72d14a98f.mp4
 
-https://user-images.githubusercontent.com/11576342/193983634-cec94715-17b8-4bf1-8570-b2a72d14a98f.mp4
-
 https://user-images.githubusercontent.com/11576342/193983650-e3723730-2ab6-4ce4-84cf-898166c70335.mp4
 
 https://user-images.githubusercontent.com/11576342/193983653-3aa2d6b6-9d62-4e26-9e0c-d6fec643fb9c.mp4
