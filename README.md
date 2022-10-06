@@ -1,5 +1,5 @@
-# KuoteBot
-KotlinScript to generate Quotes with Background and Music
+# ReelScriot
+KotlinScript that generate Reel from a given image, text and audio
 
 https://user-images.githubusercontent.com/11576342/193983634-cec94715-17b8-4bf1-8570-b2a72d14a98f.mp4
 
